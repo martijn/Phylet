@@ -1,0 +1,10 @@
+.git
+.gitignore
+.idea
+.vs
+**/bin
+**/obj
+**/TestResults
+**/*.user
+**/*.suo
+Philio/MediaTest
