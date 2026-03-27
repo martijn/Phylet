@@ -48,10 +48,13 @@ public sealed class DidlBuilder
         var node = BuildContainer(container.ObjectId, container.ParentObjectId, container.Title, container.UpnpClass, container.ChildCount);
         if (container.AlbumArtAlbumId.HasValue)
         {
-            node.Add(new XElement(
-                UpnpNs + "albumArtURI",
-                new XAttribute(DlnaNs + "profileID", LibraryPresentation.AlbumArtProfileId),
-                BuildCoverUrl(baseUri, container.AlbumArtAlbumId.Value)));
+            node.Add(BuildAlbumArtElement(
+                BuildCoverUrl(baseUri, container.AlbumArtAlbumId.Value),
+                container.AlbumArtProfileId));
+        }
+        else if (IconCatalog.TryGetRootContainerIcon(container.ObjectId, out var icon))
+        {
+            node.Add(BuildAlbumArtElement(new Uri(baseUri, icon.Path).ToString(), icon.ProfileId));
         }
 
         return node;
@@ -94,13 +97,23 @@ public sealed class DidlBuilder
 
         if (track.AlbumId.HasValue)
         {
-            item.Add(new XElement(
-                UpnpNs + "albumArtURI",
-                new XAttribute(DlnaNs + "profileID", LibraryPresentation.AlbumArtProfileId),
-                BuildCoverUrl(baseUri, track.AlbumId.Value)));
+            item.Add(BuildAlbumArtElement(
+                BuildCoverUrl(baseUri, track.AlbumId.Value),
+                track.AlbumArtProfileId));
         }
 
         return item;
+    }
+
+    private static XElement BuildAlbumArtElement(string url, string? profileId)
+    {
+        var element = new XElement(UpnpNs + "albumArtURI", url);
+        if (!string.IsNullOrWhiteSpace(profileId))
+        {
+            element.SetAttributeValue(DlnaNs + "profileID", profileId);
+        }
+
+        return element;
     }
 
     private static string FormatTrackTitle(LibraryTrackEntry track) =>

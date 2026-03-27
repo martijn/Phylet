@@ -21,6 +21,10 @@ This document freezes wire behavior that is currently verified with Samsung TV a
 - Endpoint: `GET /description.xml`
 - Namespace: `urn:schemas-upnp-org:device-1-0`
 - Device UUID and friendly name are loaded from persisted runtime configuration on startup.
+- Advertises `iconList` entries for:
+  - `/icons/server-48.png`
+  - `/icons/server-120.png`
+  - `/icons/server-240.png`
 - Services exposed:
   - ContentDirectory control: `/upnp/control/contentdirectory`
   - ConnectionManager control: `/upnp/control/connectionmanager`
@@ -88,10 +92,11 @@ This document freezes wire behavior that is currently verified with Samsung TV a
 
 - Includes namespaces:
   - DIDL-Lite, `dc`, `upnp`, `dlna`
+- Root containers `artists`, `albums`, and `files` include `upnp:albumArtURI` pointing at static PNG section icons.
 - Track `res` includes:
   - `protocolInfo` with the scanned track MIME type and DLNA parameters
   - `size` (when media file exists)
-- Includes `upnp:albumArtURI` with `dlna:profileID="JPEG_TN"`.
+- Includes `upnp:albumArtURI` with a `dlna:profileID` that matches the actual image type (`JPEG_TN` or `PNG_TN`).
 - Track titles are presented as `<track>. <title>` when a positive track number is known.
 
 ## Browse Roots And Object IDs

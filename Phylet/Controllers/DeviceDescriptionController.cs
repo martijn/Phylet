@@ -1,6 +1,7 @@
 using System.Xml.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Phylet.Data.Configuration;
+using Phylet.Services;
 
 namespace Phylet.Controllers;
 
@@ -40,6 +41,14 @@ public sealed class DeviceDescriptionController(IDeviceConfigurationProvider con
                     new XElement(DeviceNs + "manufacturer", configuration.Manufacturer),
                     new XElement(DeviceNs + "modelName", configuration.ModelName),
                     new XElement(DeviceNs + "UDN", configuration.DeviceUuid),
+                    new XElement(DeviceNs + "iconList",
+                        IconCatalog.DeviceDescriptionIcons.Select(icon =>
+                            new XElement(DeviceNs + "icon",
+                                new XElement(DeviceNs + "mimetype", icon.MimeType),
+                                new XElement(DeviceNs + "width", icon.Width),
+                                new XElement(DeviceNs + "height", icon.Height),
+                                new XElement(DeviceNs + "depth", icon.Depth),
+                                new XElement(DeviceNs + "url", icon.Url)))),
                     new XElement(DeviceNs + "serviceList",
                         new XElement(DeviceNs + "service",
                             new XElement(DeviceNs + "serviceType", "urn:schemas-upnp-org:service:ContentDirectory:1"),

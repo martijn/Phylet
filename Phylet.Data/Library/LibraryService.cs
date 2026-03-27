@@ -87,7 +87,8 @@ public sealed class LibraryService(
             album.Id,
             filePath,
             imageFormat.MimeType,
-            imageFormat.DlnaContentFeatures);
+            imageFormat.DlnaContentFeatures,
+            imageFormat.ProfileId);
     }
 
     public async Task<LibraryStatistics> GetStatisticsAsync(CancellationToken cancellationToken)
@@ -153,7 +154,8 @@ public sealed class LibraryService(
                     album.Title,
                     LibraryPresentation.AlbumContainerClass,
                     album.Tracks.Count,
-                    album.CoverRelativePath != null ? album.Id : null))
+                    album.CoverRelativePath != null ? album.Id : null,
+                    album.CoverRelativePath != null ? LibraryPresentation.ResolveImageFormat(album.CoverRelativePath).ProfileId : null))
                 .SingleOrDefaultAsync(cancellationToken),
             LibraryObjectKind.Folder => await dbContext.Folders
                 .Where(folder => folder.Id == objectId.EntityId)
@@ -177,7 +179,8 @@ public sealed class LibraryService(
                     track.FileSize,
                     track.TrackArtistName,
                     track.Album!.Title,
-                    track.TrackNumber > 0 ? track.TrackNumber : null))
+                    track.TrackNumber > 0 ? track.TrackNumber : null,
+                    track.Album!.CoverRelativePath != null ? LibraryPresentation.ResolveImageFormat(track.Album.CoverRelativePath).ProfileId : null))
                 .SingleOrDefaultAsync(cancellationToken),
             LibraryObjectKind.FileTrack => await dbContext.Tracks
                 .Where(track => track.Id == objectId.EntityId)
@@ -192,7 +195,8 @@ public sealed class LibraryService(
                     track.FileSize,
                     track.TrackArtistName,
                     track.Album != null ? track.Album.Title : null,
-                    track.TrackNumber > 0 ? track.TrackNumber : null))
+                    track.TrackNumber > 0 ? track.TrackNumber : null,
+                    track.Album != null && track.Album.CoverRelativePath != null ? LibraryPresentation.ResolveImageFormat(track.Album.CoverRelativePath).ProfileId : null))
                 .SingleOrDefaultAsync(cancellationToken),
             _ => null
         };
@@ -233,7 +237,8 @@ public sealed class LibraryService(
                     album.Title,
                     LibraryPresentation.AlbumContainerClass,
                     album.Tracks.Count,
-                    album.CoverRelativePath != null ? album.Id : null))
+                    album.CoverRelativePath != null ? album.Id : null,
+                    album.CoverRelativePath != null ? LibraryPresentation.ResolveImageFormat(album.CoverRelativePath).ProfileId : null))
                 .ToListAsync(cancellationToken),
             LibraryObjectKind.Album => await BuildAlbumChildrenAsync(dbContext, objectId.EntityId, cancellationToken),
             LibraryObjectKind.FilesRoot => await BuildFolderChildrenAsync(dbContext, null, LibraryObjectIds.FilesRoot, cancellationToken),

@@ -52,9 +52,16 @@ public sealed class DeviceDescriptionControllerTests
         var xml = XDocument.Parse(result.Content!);
         var friendlyName = xml.Descendants().First(node => node.Name.LocalName == "friendlyName").Value;
         var udn = xml.Descendants().First(node => node.Name.LocalName == "UDN").Value;
+        var iconUrls = xml.Descendants()
+            .Where(node => node.Name.LocalName == "url")
+            .Select(node => node.Value)
+            .ToArray();
 
         Assert.Equal("Kitchen", friendlyName);
         Assert.Equal("uuid:22222222-2222-2222-2222-222222222222", udn);
+        Assert.Equal(
+            ["/icons/server-48.png", "/icons/server-120.png", "/icons/server-240.png"],
+            iconUrls);
     }
 
     private sealed class SqliteInMemoryDbFixture : IAsyncDisposable

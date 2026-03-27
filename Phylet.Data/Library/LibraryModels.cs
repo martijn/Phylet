@@ -12,7 +12,8 @@ public sealed record LibraryContainerEntry(
     string Title,
     string UpnpClass,
     int ChildCount,
-    int? AlbumArtAlbumId = null) : LibraryBrowseEntry(ObjectId, ParentObjectId, Title, UpnpClass);
+    int? AlbumArtAlbumId = null,
+    string? AlbumArtProfileId = null) : LibraryBrowseEntry(ObjectId, ParentObjectId, Title, UpnpClass);
 
 public sealed record LibraryTrackEntry(
     string ObjectId,
@@ -25,7 +26,8 @@ public sealed record LibraryTrackEntry(
     long FileSize,
     string? ArtistName,
     string? AlbumTitle,
-    int? OriginalTrackNumber) : LibraryBrowseEntry(ObjectId, ParentObjectId, Title, UpnpClass);
+    int? OriginalTrackNumber,
+    string? AlbumArtProfileId = null) : LibraryBrowseEntry(ObjectId, ParentObjectId, Title, UpnpClass);
 
 public enum LibraryBrowseStatus
 {
@@ -50,7 +52,8 @@ public sealed record LibraryImageResource(
     int AlbumId,
     string FilePath,
     string MimeType,
-    string DlnaContentFeatures);
+    string DlnaContentFeatures,
+    string ProfileId);
 
 public sealed record LibraryStatistics(
     int ArtistCount,

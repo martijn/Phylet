@@ -31,6 +31,7 @@ app.Use(async (context, next) =>
     app.Logger.LogDebug("HTTP response {StatusCode} {Method} {Path}{QueryString}", context.Response.StatusCode, context.Request.Method, context.Request.Path, context.Request.QueryString);
 });
 
+app.MapStaticAssets();
 app.MapControllers();
 
 await app.Services.InitializePhyletAsync();
