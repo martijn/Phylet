@@ -7,6 +7,7 @@ namespace Phylet.Controllers;
 [ApiController]
 public sealed class MediaController(
     LibraryService library,
+    IAudioMetadataReader metadataReader,
     ILogger<MediaController> logger) : ControllerBase
 {
     [HttpGet("/media/audio/{trackId:int}")]
@@ -54,7 +55,46 @@ public sealed class MediaController(
             return NotFound();
         }
 
-        var path = image.FilePath;
+        if (image.IsEmbeddedArtwork)
+        {
+            var sourcePath = image.EmbeddedArtworkSourceFilePath!;
+            if (!System.IO.File.Exists(sourcePath))
+            {
+                logger.LogWarning("Embedded artwork source file not found for album id {AlbumId}. Expected path: {Path}", albumId, sourcePath);
+                return NotFound();
+            }
+
+            EmbeddedArtworkContent? embeddedArtwork;
+            try
+            {
+                embeddedArtwork = metadataReader.ReadEmbeddedArtwork(sourcePath, LibraryPresentation.MaxEmbeddedArtworkBytes);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Embedded artwork extraction failed for album id {AlbumId} from {Path}", albumId, sourcePath);
+                return NotFound();
+            }
+
+            if (embeddedArtwork is null)
+            {
+                logger.LogWarning("Embedded artwork no longer available for album id {AlbumId} from {Path}", albumId, sourcePath);
+                return NotFound();
+            }
+
+            logger.LogInformation(
+                "Serving embedded album art {AlbumId} from {Path}, mime={MimeType}, bytes={Length}, range={RangeHeader}",
+                albumId,
+                sourcePath,
+                embeddedArtwork.MimeType,
+                embeddedArtwork.Data.Length,
+                Request.Headers.Range.ToString());
+
+            Response.Headers["transferMode.dlna.org"] = "Interactive";
+            Response.Headers["contentFeatures.dlna.org"] = image.DlnaContentFeatures;
+            return File(embeddedArtwork.Data, embeddedArtwork.MimeType, enableRangeProcessing: true);
+        }
+
+        var path = image.FilePath!;
         if (!System.IO.File.Exists(path))
         {
             logger.LogWarning("Image request file not found for album id {AlbumId}. Expected path: {Path}", albumId, path);

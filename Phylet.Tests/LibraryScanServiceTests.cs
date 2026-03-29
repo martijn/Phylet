@@ -199,6 +199,8 @@ public sealed class LibraryScanServiceTests
 
         public AudioMetadata Read(string filePath) => _entries[filePath];
 
+        public EmbeddedArtworkContent? ReadEmbeddedArtwork(string filePath, int maxArtworkBytes) => null;
+
         public void Set(string filePath, AudioMetadata metadata) => _entries[filePath] = metadata;
     }
 
@@ -216,6 +218,8 @@ public sealed class LibraryScanServiceTests
             _release.Task.GetAwaiter().GetResult();
             return _entries[filePath];
         }
+
+        public EmbeddedArtworkContent? ReadEmbeddedArtwork(string filePath, int maxArtworkBytes) => null;
 
         public void Set(string filePath, AudioMetadata metadata) => _entries[filePath] = metadata;
 

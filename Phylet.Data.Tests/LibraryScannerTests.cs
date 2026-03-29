@@ -51,6 +51,8 @@ public sealed class LibraryScannerTests
         Assert.Equal("The Artist", artists[0].Name);
         Assert.Equal("The Album", albums[0].Title);
         Assert.Equal("Tagged Album/cover.jpg", albums[0].CoverRelativePath);
+        Assert.Null(albums[0].EmbeddedCoverRelativePath);
+        Assert.Null(albums[0].EmbeddedCoverMimeType);
 
         var taggedTracks = tracks.Where(track => track.AlbumId == albums[0].Id).OrderBy(track => track.TrackNumber).ToArray();
         Assert.Equal(["First Song", "Second Song"], taggedTracks.Select(track => track.Title));
@@ -214,6 +216,62 @@ public sealed class LibraryScannerTests
     }
 
     [Fact]
+    public async Task ScanAsync_IndexesEmbeddedArtworkWhenCoverFileIsMissing()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var fixture = await SqliteInMemoryDbFixture.CreateAsync();
+        await using var tempMedia = await TempMediaDirectory.CreateAsync();
+
+        var firstTrackPath = tempMedia.CreateFile("Embedded Album/01-first.mp3", [1, 2, 3]);
+        var secondTrackPath = tempMedia.CreateFile("Embedded Album/02-second.mp3", [4, 5, 6]);
+
+        var metadataReader = new StubAudioMetadataReader();
+        metadataReader.Set(firstTrackPath, new AudioMetadata("First Song", "The Artist", "The Artist", "Embedded Album", 1, 1, 1000));
+        metadataReader.Set(secondTrackPath, new AudioMetadata("Second Song", "The Artist", "The Artist", "Embedded Album", 2, 1, 1000));
+        metadataReader.SetEmbeddedArtwork(firstTrackPath, new EmbeddedArtworkContent("image/jpeg", [10, 11, 12]));
+
+        var scanner = new LibraryScanner(
+            fixture.DbContext,
+            metadataReader,
+            CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
+            NullLogger<LibraryScanner>.Instance);
+
+        await scanner.ScanAsync(cancellationToken);
+
+        var album = await fixture.DbContext.Albums.AsNoTracking().SingleAsync(cancellationToken);
+        Assert.Null(album.CoverRelativePath);
+        Assert.Equal("Embedded Album/01-first.mp3", album.EmbeddedCoverRelativePath);
+        Assert.Equal("image/jpeg", album.EmbeddedCoverMimeType);
+    }
+
+    [Fact]
+    public async Task ScanAsync_IgnoresEmbeddedArtworkOverSizeLimit()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var fixture = await SqliteInMemoryDbFixture.CreateAsync();
+        await using var tempMedia = await TempMediaDirectory.CreateAsync();
+
+        var trackPath = tempMedia.CreateFile("Large Art Album/01-track.mp3", [1, 2, 3]);
+
+        var metadataReader = new StubAudioMetadataReader();
+        metadataReader.Set(trackPath, new AudioMetadata("Track", "The Artist", "The Artist", "Large Art Album", 1, 1, 1000));
+        metadataReader.SetEmbeddedArtwork(trackPath, new EmbeddedArtworkContent("image/jpeg", new byte[LibraryPresentation.MaxEmbeddedArtworkBytes + 1]));
+
+        var scanner = new LibraryScanner(
+            fixture.DbContext,
+            metadataReader,
+            CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
+            NullLogger<LibraryScanner>.Instance);
+
+        await scanner.ScanAsync(cancellationToken);
+
+        var album = await fixture.DbContext.Albums.AsNoTracking().SingleAsync(cancellationToken);
+        Assert.Null(album.CoverRelativePath);
+        Assert.Null(album.EmbeddedCoverRelativePath);
+        Assert.Null(album.EmbeddedCoverMimeType);
+    }
+
+    [Fact]
     public void ResolveMediaPath_UsesDevelopmentMediaTestByDefault()
     {
         var resolver = new MediaPathResolver(
@@ -286,6 +344,7 @@ public sealed class LibraryScannerTests
     {
         private readonly Dictionary<string, AudioMetadata> _entries = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Exception> _exceptions = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, EmbeddedArtworkContent> _embeddedArtwork = new(StringComparer.Ordinal);
 
         public AudioMetadata Read(string filePath)
         {
@@ -297,9 +356,21 @@ public sealed class LibraryScannerTests
             return _entries[filePath];
         }
 
+        public EmbeddedArtworkContent? ReadEmbeddedArtwork(string filePath, int maxArtworkBytes)
+        {
+            if (!_embeddedArtwork.TryGetValue(filePath, out var artwork))
+            {
+                return null;
+            }
+
+            return artwork.Data.Length <= maxArtworkBytes ? artwork : null;
+        }
+
         public void Set(string filePath, AudioMetadata metadata) => _entries[filePath] = metadata;
 
         public void SetException(string filePath, Exception exception) => _exceptions[filePath] = exception;
+
+        public void SetEmbeddedArtwork(string filePath, EmbeddedArtworkContent artwork) => _embeddedArtwork[filePath] = artwork;
     }
 
     private sealed class TestHostEnvironment : IHostEnvironment

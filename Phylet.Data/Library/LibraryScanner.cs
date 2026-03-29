@@ -179,9 +179,45 @@ public sealed class LibraryScanner(
         }
 
         var remainingAlbums = await dbContext.Albums.ToListAsync(cancellationToken);
+        var embeddedArtworkCandidates = await dbContext.Tracks
+            .Where(track => track.AlbumId.HasValue)
+            .OrderBy(track => track.AlbumId)
+            .ThenBy(track => track.RelativePath)
+            .Select(track => new { AlbumId = track.AlbumId!.Value, track.RelativePath })
+            .ToListAsync(cancellationToken);
+        var embeddedArtworkSourceByAlbumId = embeddedArtworkCandidates
+            .GroupBy(candidate => candidate.AlbumId)
+            .ToDictionary(group => group.Key, group => group.First().RelativePath);
+
         foreach (var album in remainingAlbums)
         {
             album.CoverRelativePath = ResolveCoverRelativePath(mediaRoot, album.AlbumPathKey);
+            album.EmbeddedCoverRelativePath = null;
+            album.EmbeddedCoverMimeType = null;
+
+            if (album.CoverRelativePath is not null
+                || !embeddedArtworkSourceByAlbumId.TryGetValue(album.Id, out var artworkSourceRelativePath))
+            {
+                continue;
+            }
+
+            try
+            {
+                var embeddedArtwork = metadataReader.ReadEmbeddedArtwork(
+                    mediaPathResolver.ResolveMediaFilePath(artworkSourceRelativePath),
+                    LibraryPresentation.MaxEmbeddedArtworkBytes);
+                if (embeddedArtwork is null)
+                {
+                    continue;
+                }
+
+                album.EmbeddedCoverRelativePath = artworkSourceRelativePath;
+                album.EmbeddedCoverMimeType = embeddedArtwork.MimeType;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to inspect embedded artwork for album {AlbumId} from {Path}.", album.Id, artworkSourceRelativePath);
+            }
         }
 
         scanState.LastScanUtc = DateTime.UtcNow;

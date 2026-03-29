@@ -2,6 +2,7 @@ namespace Phylet.Data.Library;
 
 public static class LibraryPresentation
 {
+    public const int MaxEmbeddedArtworkBytes = 500 * 1024;
     public const string MusicContainerClass = "object.container";
     public const string ArtistContainerClass = "object.container.person.musicArtist";
     public const string AlbumContainerClass = "object.container.album.musicAlbum";
@@ -23,6 +24,11 @@ public static class LibraryPresentation
             _ => new LibraryImageFormat("image/jpeg", JpegDlnaContentFeatures, JpegAlbumArtProfileId)
         };
     }
+
+    internal static LibraryImageFormat ResolveImageFormatFromMimeType(string mimeType) =>
+        mimeType.Equals("image/png", StringComparison.OrdinalIgnoreCase)
+            ? new LibraryImageFormat("image/png", PngDlnaContentFeatures, PngAlbumArtProfileId)
+            : new LibraryImageFormat("image/jpeg", JpegDlnaContentFeatures, JpegAlbumArtProfileId);
 }
 
 internal sealed record LibraryImageFormat(

@@ -74,21 +74,46 @@ public sealed class LibraryService(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var album = await dbContext.Albums
             .Where(entity => entity.Id == albumId)
-            .Select(entity => new { entity.Id, entity.CoverRelativePath })
+            .Select(entity => new
+            {
+                entity.Id,
+                entity.CoverRelativePath,
+                entity.EmbeddedCoverRelativePath,
+                entity.EmbeddedCoverMimeType
+            })
             .SingleOrDefaultAsync(cancellationToken);
-        if (album is null || string.IsNullOrWhiteSpace(album.CoverRelativePath))
+        if (album is null)
         {
             return null;
         }
 
-        var filePath = mediaPathResolver.ResolveMediaFilePath(album.CoverRelativePath);
-        var imageFormat = LibraryPresentation.ResolveImageFormat(filePath);
+        if (!string.IsNullOrWhiteSpace(album.CoverRelativePath))
+        {
+            var filePath = mediaPathResolver.ResolveMediaFilePath(album.CoverRelativePath);
+            var imageFormat = LibraryPresentation.ResolveImageFormat(filePath);
+            return new LibraryImageResource(
+                album.Id,
+                filePath,
+                null,
+                imageFormat.MimeType,
+                imageFormat.DlnaContentFeatures,
+                imageFormat.ProfileId);
+        }
+
+        if (string.IsNullOrWhiteSpace(album.EmbeddedCoverRelativePath) || string.IsNullOrWhiteSpace(album.EmbeddedCoverMimeType))
+        {
+            return null;
+        }
+
+        var embeddedSourcePath = mediaPathResolver.ResolveMediaFilePath(album.EmbeddedCoverRelativePath);
+        var embeddedImageFormat = LibraryPresentation.ResolveImageFormatFromMimeType(album.EmbeddedCoverMimeType);
         return new LibraryImageResource(
             album.Id,
-            filePath,
-            imageFormat.MimeType,
-            imageFormat.DlnaContentFeatures,
-            imageFormat.ProfileId);
+            null,
+            embeddedSourcePath,
+            embeddedImageFormat.MimeType,
+            embeddedImageFormat.DlnaContentFeatures,
+            embeddedImageFormat.ProfileId);
     }
 
     public async Task<LibraryStatistics> GetStatisticsAsync(CancellationToken cancellationToken)
@@ -154,8 +179,12 @@ public sealed class LibraryService(
                     album.Title,
                     LibraryPresentation.AlbumContainerClass,
                     album.Tracks.Count,
-                    album.CoverRelativePath != null ? album.Id : null,
-                    album.CoverRelativePath != null ? LibraryPresentation.ResolveImageFormat(album.CoverRelativePath).ProfileId : null))
+                    album.CoverRelativePath != null || album.EmbeddedCoverRelativePath != null ? album.Id : null,
+                    album.CoverRelativePath != null
+                        ? LibraryPresentation.ResolveImageFormat(album.CoverRelativePath).ProfileId
+                        : album.EmbeddedCoverMimeType != null
+                            ? LibraryPresentation.ResolveImageFormatFromMimeType(album.EmbeddedCoverMimeType).ProfileId
+                            : null))
                 .SingleOrDefaultAsync(cancellationToken),
             LibraryObjectKind.Folder => await dbContext.Folders
                 .Where(folder => folder.Id == objectId.EntityId)
@@ -180,7 +209,11 @@ public sealed class LibraryService(
                     track.TrackArtistName,
                     track.Album!.Title,
                     track.TrackNumber > 0 ? track.TrackNumber : null,
-                    track.Album!.CoverRelativePath != null ? LibraryPresentation.ResolveImageFormat(track.Album.CoverRelativePath).ProfileId : null))
+                    track.Album!.CoverRelativePath != null
+                        ? LibraryPresentation.ResolveImageFormat(track.Album.CoverRelativePath).ProfileId
+                        : track.Album.EmbeddedCoverMimeType != null
+                            ? LibraryPresentation.ResolveImageFormatFromMimeType(track.Album.EmbeddedCoverMimeType).ProfileId
+                            : null))
                 .SingleOrDefaultAsync(cancellationToken),
             LibraryObjectKind.FileTrack => await dbContext.Tracks
                 .Where(track => track.Id == objectId.EntityId)
@@ -196,7 +229,11 @@ public sealed class LibraryService(
                     track.TrackArtistName,
                     track.Album != null ? track.Album.Title : null,
                     track.TrackNumber > 0 ? track.TrackNumber : null,
-                    track.Album != null && track.Album.CoverRelativePath != null ? LibraryPresentation.ResolveImageFormat(track.Album.CoverRelativePath).ProfileId : null))
+                    track.Album != null && track.Album.CoverRelativePath != null
+                        ? LibraryPresentation.ResolveImageFormat(track.Album.CoverRelativePath).ProfileId
+                        : track.Album != null && track.Album.EmbeddedCoverMimeType != null
+                            ? LibraryPresentation.ResolveImageFormatFromMimeType(track.Album.EmbeddedCoverMimeType).ProfileId
+                            : null))
                 .SingleOrDefaultAsync(cancellationToken),
             _ => null
         };
@@ -237,8 +274,12 @@ public sealed class LibraryService(
                     album.Title,
                     LibraryPresentation.AlbumContainerClass,
                     album.Tracks.Count,
-                    album.CoverRelativePath != null ? album.Id : null,
-                    album.CoverRelativePath != null ? LibraryPresentation.ResolveImageFormat(album.CoverRelativePath).ProfileId : null))
+                    album.CoverRelativePath != null || album.EmbeddedCoverRelativePath != null ? album.Id : null,
+                    album.CoverRelativePath != null
+                        ? LibraryPresentation.ResolveImageFormat(album.CoverRelativePath).ProfileId
+                        : album.EmbeddedCoverMimeType != null
+                            ? LibraryPresentation.ResolveImageFormatFromMimeType(album.EmbeddedCoverMimeType).ProfileId
+                            : null))
                 .ToListAsync(cancellationToken),
             LibraryObjectKind.Album => await BuildAlbumChildrenAsync(dbContext, objectId.EntityId, cancellationToken),
             LibraryObjectKind.FilesRoot => await BuildFolderChildrenAsync(dbContext, null, LibraryObjectIds.FilesRoot, cancellationToken),
@@ -282,7 +323,12 @@ public sealed class LibraryService(
                 album.Title,
                 LibraryPresentation.AlbumContainerClass,
                 album.Tracks.Count,
-                album.CoverRelativePath != null ? album.Id : null))
+                album.CoverRelativePath != null || album.EmbeddedCoverRelativePath != null ? album.Id : null,
+                album.CoverRelativePath != null
+                    ? LibraryPresentation.ResolveImageFormat(album.CoverRelativePath).ProfileId
+                    : album.EmbeddedCoverMimeType != null
+                        ? LibraryPresentation.ResolveImageFormatFromMimeType(album.EmbeddedCoverMimeType).ProfileId
+                        : null))
             .ToListAsync(cancellationToken);
     }
 

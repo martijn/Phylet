@@ -39,6 +39,8 @@ public sealed class PhyletDbContext(DbContextOptions<PhyletDbContext> options, R
             entity.Property(album => album.NormalizedTitle).HasMaxLength(512);
             entity.Property(album => album.AlbumPathKey).HasMaxLength(2048);
             entity.Property(album => album.CoverRelativePath).HasMaxLength(2048);
+            entity.Property(album => album.EmbeddedCoverRelativePath).HasMaxLength(2048);
+            entity.Property(album => album.EmbeddedCoverMimeType).HasMaxLength(128);
             entity.HasIndex(album => new { album.ArtistId, album.NormalizedTitle, album.AlbumPathKey }).IsUnique();
             entity.HasOne(album => album.Artist)
                 .WithMany(artist => artist.Albums)

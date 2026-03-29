@@ -50,10 +50,14 @@ public sealed record LibraryTrackResource(
 
 public sealed record LibraryImageResource(
     int AlbumId,
-    string FilePath,
+    string? FilePath,
+    string? EmbeddedArtworkSourceFilePath,
     string MimeType,
     string DlnaContentFeatures,
-    string ProfileId);
+    string ProfileId)
+{
+    public bool IsEmbeddedArtwork => !string.IsNullOrWhiteSpace(EmbeddedArtworkSourceFilePath);
+}
 
 public sealed record LibraryStatistics(
     int ArtistCount,
@@ -71,3 +75,7 @@ public sealed record AudioMetadata(
     int? TrackNumber,
     int? DiscNumber,
     long? DurationMs);
+
+public sealed record EmbeddedArtworkContent(
+    string MimeType,
+    byte[] Data);

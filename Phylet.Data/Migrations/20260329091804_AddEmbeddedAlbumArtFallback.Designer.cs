@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Phylet.Data;
 
@@ -10,9 +11,11 @@ using Phylet.Data;
 namespace Phylet.Data.Migrations
 {
     [DbContext(typeof(PhyletDbContext))]
-    partial class PhyletDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260329091804_AddEmbeddedAlbumArtFallback")]
+    partial class AddEmbeddedAlbumArtFallback
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.3");

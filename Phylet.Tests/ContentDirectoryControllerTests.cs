@@ -126,6 +126,37 @@ public sealed class ContentDirectoryControllerTests
         Assert.StartsWith("file-track:", ids[1], StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Control_BrowseAlbums_UsesEmbeddedArtworkProfileWhenNoCoverFileExists()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var fixture = await SqliteInMemoryDbFixture.CreateAsync();
+        await using var mediaRoot = await TempMediaDirectory.CreateAsync();
+
+        await SeedLibraryWithEmbeddedArtworkAsync(fixture.DbContext, cancellationToken);
+
+        var provider = new RuntimeDeviceConfigurationProvider();
+        provider.Set(new RuntimeDeviceConfiguration(
+            "uuid:77777777-7777-7777-7777-777777777777",
+            "Test",
+            "Phylet",
+            "Phylet Music Server",
+            1800));
+
+        var controller = CreateController(fixture.Connection, mediaRoot.RootPath, provider);
+        SetBrowseRequest(controller, "albums", "BrowseDirectChildren");
+
+        var result = await controller.Control();
+        var soap = XDocument.Parse(result.Content!);
+        var didl = XDocument.Parse(soap.Descendants().First(element => element.Name.LocalName == "Result").Value);
+        var artElement = didl.Descendants().First(element => element.Name.LocalName == "albumArtURI");
+
+        Assert.Equal("http://127.0.0.1:5128/media/image/1", artElement.Value);
+        Assert.Equal(
+            LibraryPresentation.PngAlbumArtProfileId,
+            artElement.Attributes().First(attribute => attribute.Name.LocalName == "profileID").Value);
+    }
+
     private static ContentDirectoryController CreateController(
         SqliteConnection connection,
         string mediaPath,
@@ -303,6 +334,43 @@ public sealed class ContentDirectoryControllerTests
                 NormalizedTitle = "ALPHA ALBUM",
                 AlbumPathKey = "Alpha Artist/Alpha Album"
             });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task SeedLibraryWithEmbeddedArtworkAsync(PhyletDbContext dbContext, CancellationToken cancellationToken)
+    {
+        var artist = new ArtistEntity
+        {
+            Name = "Embedded Artist",
+            NormalizedName = "EMBEDDED ARTIST"
+        };
+        var album = new AlbumEntity
+        {
+            Artist = artist,
+            Title = "Embedded Album",
+            NormalizedTitle = "EMBEDDED ALBUM",
+            AlbumPathKey = "Embedded Album",
+            EmbeddedCoverRelativePath = "Embedded Album/track-1.flac",
+            EmbeddedCoverMimeType = "image/png"
+        };
+
+        dbContext.Artists.Add(artist);
+        dbContext.Albums.Add(album);
+        dbContext.Tracks.Add(new TrackEntity
+        {
+            Album = album,
+            RelativePath = "Embedded Album/track-1.flac",
+            FileName = "track-1.flac",
+            Title = "Track",
+            TrackArtistName = "Embedded Artist",
+            DiscNumber = 1,
+            TrackNumber = 1,
+            Format = "flac",
+            MimeType = "audio/flac",
+            FileSize = 12,
+            LastModifiedUtc = DateTime.UtcNow
+        });
 
         await dbContext.SaveChangesAsync(cancellationToken);
     }
