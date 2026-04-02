@@ -23,7 +23,7 @@ public sealed record LibraryTrackEntry(
     int TrackId,
     int? AlbumId,
     string MimeType,
-    long FileSize,
+    long? FileSize,
     string? ArtistName,
     string? AlbumTitle,
     int? OriginalTrackNumber,
@@ -44,9 +44,13 @@ public sealed record LibraryBrowseResult(
 
 public sealed record LibraryTrackResource(
     int TrackId,
-    string FilePath,
+    TrackSourceKind SourceKind,
     string MimeType,
-    string DlnaContentFeatures);
+    string DlnaContentFeatures,
+    bool SupportsRangeProcessing,
+    string SourceFilePath,
+    long? CueSegmentStartMs = null,
+    long? CueSegmentDurationMs = null);
 
 public sealed record LibraryImageResource(
     int AlbumId,
@@ -79,3 +83,25 @@ public sealed record AudioMetadata(
 public sealed record EmbeddedArtworkContent(
     string MimeType,
     byte[] Data);
+
+public sealed record CueSheetDocument(
+    string SourceFileName,
+    string? Title,
+    string? Performer,
+    IReadOnlyList<CueSheetTrack> Tracks);
+
+public sealed record CueSheetTrack(
+    int Number,
+    string? Title,
+    string? Performer,
+    CueSheetTime Index01,
+    CueSheetTime? Index00);
+
+public readonly record struct CueSheetTime(int Minutes, int Seconds, int Frames)
+{
+    public long ToMilliseconds() => (long)Math.Round(((Minutes * 60) + Seconds + (Frames / 75d)) * 1000d, MidpointRounding.AwayFromZero);
+}
+
+public sealed record AudioDecoderAvailability(
+    bool IsAvailable,
+    string? Reason = null);

@@ -8,6 +8,7 @@ public sealed class StartupDiagnosticsService(
     IDeviceConfigurationProvider configurationProvider,
     ServerAddressResolver serverAddressResolver,
     MediaPathResolver mediaPathResolver,
+    IAudioDecoder audioDecoder,
     LibraryService library) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -16,14 +17,17 @@ public sealed class StartupDiagnosticsService(
         var statistics = await library.GetStatisticsAsync(stoppingToken);
         var resolvedAddresses = await serverAddressResolver.ResolveAsync(stoppingToken);
         var configuration = configurationProvider.Current;
+        var decoderAvailability = audioDecoder.GetAvailability();
 
         logger.LogInformation(
-            "Startup self-check: DeviceUuid={DeviceUuid}, FriendlyName={FriendlyName}, ListenAddresses={ListenAddresses}, AdvertisedBaseUrl={AdvertisedBaseUrl}, MediaRoot={MediaRoot}, Artists={ArtistCount}, Albums={AlbumCount}, Tracks={TrackCount}, Folders={FolderCount}, TotalAudioBytes={TotalAudioBytes}, LastScanUtc={LastScanUtc}",
+            "Startup self-check: DeviceUuid={DeviceUuid}, FriendlyName={FriendlyName}, ListenAddresses={ListenAddresses}, AdvertisedBaseUrl={AdvertisedBaseUrl}, MediaRoot={MediaRoot}, DecoderAvailable={DecoderAvailable}, DecoderReason={DecoderReason}, Artists={ArtistCount}, Albums={AlbumCount}, Tracks={TrackCount}, Folders={FolderCount}, TotalAudioBytes={TotalAudioBytes}, LastScanUtc={LastScanUtc}",
             configuration.DeviceUuid,
             configuration.FriendlyName,
             string.Join(", ", resolvedAddresses.ListenAddresses.Select(address => address.ToString())),
             resolvedAddresses.AdvertisedBaseUri,
             mediaRoot,
+            decoderAvailability.IsAvailable,
+            decoderAvailability.Reason,
             statistics.ArtistCount,
             statistics.AlbumCount,
             statistics.TrackCount,

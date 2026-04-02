@@ -34,6 +34,8 @@ public sealed class LibraryScannerTests
         var scanner = new LibraryScanner(
             fixture.DbContext,
             metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
             CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
             NullLogger<LibraryScanner>.Instance);
 
@@ -82,6 +84,8 @@ public sealed class LibraryScannerTests
         var scanner = new LibraryScanner(
             fixture.DbContext,
             metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
             CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
             NullLogger<LibraryScanner>.Instance);
 
@@ -114,6 +118,8 @@ public sealed class LibraryScannerTests
         var scanner = new LibraryScanner(
             fixture.DbContext,
             metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
             CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
             NullLogger<LibraryScanner>.Instance);
 
@@ -154,6 +160,8 @@ public sealed class LibraryScannerTests
         var scanner = new LibraryScanner(
             fixture.DbContext,
             metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
             CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
             NullLogger<LibraryScanner>.Instance);
 
@@ -192,6 +200,8 @@ public sealed class LibraryScannerTests
         var scanner = new LibraryScanner(
             fixture.DbContext,
             metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
             CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
             NullLogger<LibraryScanner>.Instance);
 
@@ -233,6 +243,8 @@ public sealed class LibraryScannerTests
         var scanner = new LibraryScanner(
             fixture.DbContext,
             metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
             CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
             NullLogger<LibraryScanner>.Instance);
 
@@ -260,6 +272,8 @@ public sealed class LibraryScannerTests
         var scanner = new LibraryScanner(
             fixture.DbContext,
             metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
             CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
             NullLogger<LibraryScanner>.Instance);
 
@@ -269,6 +283,104 @@ public sealed class LibraryScannerTests
         Assert.Null(album.CoverRelativePath);
         Assert.Null(album.EmbeddedCoverRelativePath);
         Assert.Null(album.EmbeddedCoverMimeType);
+    }
+
+    [Fact]
+    public async Task ScanAsync_ImportsSingleImageCueFlacAsVirtualTracks()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var fixture = await SqliteInMemoryDbFixture.CreateAsync();
+        await using var tempMedia = await TempMediaDirectory.CreateAsync();
+
+        tempMedia.CreateDirectory("Cue Album");
+        var flacPath = tempMedia.CreateFile("Cue Album/album.flac", [1, 2, 3, 4]);
+        tempMedia.CreateFile("Cue Album/album.cue", Encoding.UTF8.GetBytes("""
+            PERFORMER "The Artist"
+            TITLE "The Album"
+            FILE "album.flac" WAVE
+              TRACK 01 AUDIO
+                TITLE "First Song"
+                PERFORMER "The Artist"
+                INDEX 01 00:00:00
+              TRACK 02 AUDIO
+                TITLE "Second Song"
+                PERFORMER "The Artist"
+                INDEX 01 00:30:00
+            """));
+
+        var metadataReader = new StubAudioMetadataReader();
+        metadataReader.Set(flacPath, new AudioMetadata("Album Image", "The Artist", "The Artist", "The Album", 1, 1, 60000));
+
+        var scanner = new LibraryScanner(
+            fixture.DbContext,
+            metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
+            CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
+            NullLogger<LibraryScanner>.Instance);
+
+        await scanner.ScanAsync(cancellationToken);
+
+        var album = await fixture.DbContext.Albums.AsNoTracking().SingleAsync(cancellationToken);
+        var tracks = await fixture.DbContext.Tracks
+            .AsNoTracking()
+            .OrderBy(track => track.TrackNumber)
+            .ToListAsync(cancellationToken);
+
+        Assert.Equal("The Album", album.Title);
+        Assert.Equal(2, tracks.Count);
+        Assert.All(tracks, track => Assert.Equal(TrackSourceKind.CueSheet, track.SourceKind));
+        Assert.All(tracks, track => Assert.Equal("Cue Album/album.flac", track.SourceRelativePath));
+        Assert.Equal(["First Song", "Second Song"], tracks.Select(track => track.Title));
+        Assert.Equal([30000L, 30000L], tracks.Select(track => track.DurationMs));
+    }
+
+    [Fact]
+    public async Task ScanAsync_IgnoresMultiFileCueAndKeepsDirectFlacTracks()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var fixture = await SqliteInMemoryDbFixture.CreateAsync();
+        await using var tempMedia = await TempMediaDirectory.CreateAsync();
+
+        var firstFlacPath = tempMedia.CreateFile("Split Cue/01-first.flac", [1, 2, 3]);
+        var secondFlacPath = tempMedia.CreateFile("Split Cue/02-second.flac", [4, 5, 6]);
+        tempMedia.CreateFile("Split Cue/album.cue", Encoding.UTF8.GetBytes("""
+            PERFORMER "The Artist"
+            TITLE "The Album"
+            FILE "01-first.flac" WAVE
+              TRACK 01 AUDIO
+                TITLE "First Song"
+                INDEX 01 00:00:00
+            FILE "02-second.flac" WAVE
+              TRACK 02 AUDIO
+                TITLE "Second Song"
+                INDEX 01 00:00:00
+            """));
+
+        var metadataReader = new StubAudioMetadataReader();
+        metadataReader.Set(firstFlacPath, new AudioMetadata("First Song", "The Artist", "The Artist", "The Album", 1, 1, 1000));
+        metadataReader.Set(secondFlacPath, new AudioMetadata("Second Song", "The Artist", "The Artist", "The Album", 2, 1, 1000));
+
+        var scanner = new LibraryScanner(
+            fixture.DbContext,
+            metadataReader,
+            new CueSheetParser(),
+            new AvailableAudioDecoder(),
+            CreateMediaPathResolver(tempMedia.RootPath, Environments.Production),
+            NullLogger<LibraryScanner>.Instance);
+
+        await scanner.ScanAsync(cancellationToken);
+
+        var tracks = await fixture.DbContext.Tracks
+            .AsNoTracking()
+            .OrderBy(track => track.TrackNumber)
+            .ToListAsync(cancellationToken);
+
+        Assert.Equal(2, tracks.Count);
+        Assert.All(tracks, track => Assert.Equal(TrackSourceKind.File, track.SourceKind));
+        Assert.Equal(
+            ["Split Cue/01-first.flac", "Split Cue/02-second.flac"],
+            tracks.Select(track => track.SourceRelativePath));
     }
 
     [Fact]
@@ -379,6 +491,14 @@ public sealed class LibraryScannerTests
         public string ApplicationName { get; set; } = "Phylet";
         public string ContentRootPath { get; set; } = string.Empty;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class AvailableAudioDecoder : IAudioDecoder
+    {
+        public AudioDecoderAvailability GetAvailability() => new(true);
+
+        public Stream OpenCueTrackStream(string sourceFilePath, long startMs, long? durationMs) =>
+            throw new NotSupportedException();
     }
 
     private sealed class TempMediaDirectory : IAsyncDisposable

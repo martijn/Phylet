@@ -79,14 +79,16 @@ This document freezes wire behavior that is currently verified with Samsung TV a
 - Audio endpoint: `GET|HEAD /media/audio/{trackId}`
 - Artwork endpoint: `GET|HEAD /media/image/{albumId}`
 - Audio response headers:
-  - `Content-Type`: depends on scanned track format (`audio/mpeg`, `audio/flac`, `audio/mp4`, `audio/ogg`, `audio/wav`, `audio/aiff`)
+  - `Content-Type`: depends on the effective stream format (`audio/mpeg`, `audio/flac`, `audio/mp4`, `audio/ogg`, `audio/wav`, `audio/aiff`)
+  - Cue-backed virtual tracks are streamed as generated `audio/wav`
   - `transferMode.dlna.org: Streaming`
   - `contentFeatures.dlna.org`: derived from the track format
 - Artwork response headers:
   - `Content-Type`: `image/jpeg` or `image/png`
   - `transferMode.dlna.org: Interactive`
   - `contentFeatures.dlna.org`: `JPEG_TN` or `PNG_TN` profile metadata
-- HTTP range is enabled for both audio and images.
+- HTTP range is enabled for images and direct file-backed audio tracks.
+- Cue-backed virtual audio tracks do not advertise HTTP range support.
 
 ## DIDL-Lite
 

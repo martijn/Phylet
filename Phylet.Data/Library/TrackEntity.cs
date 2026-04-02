@@ -8,6 +8,11 @@ public sealed class TrackEntity
     public int? FolderId { get; set; }
     public FolderEntity? Folder { get; set; }
     public string RelativePath { get; set; } = string.Empty;
+    public TrackSourceKind SourceKind { get; set; }
+    public string SourceRelativePath { get; set; } = string.Empty;
+    public string? CueSheetRelativePath { get; set; }
+    public long? CueSegmentStartMs { get; set; }
+    public long? CueSegmentDurationMs { get; set; }
     public string FileName { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string? TrackArtistName { get; set; }

@@ -55,18 +55,40 @@ public sealed class LibraryService(
         await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
         var track = await dbContext.Tracks
             .Where(entity => entity.Id == trackId)
-            .Select(entity => new { entity.Id, entity.RelativePath, entity.MimeType })
+            .Select(entity => new
+            {
+                entity.Id,
+                entity.SourceKind,
+                entity.SourceRelativePath,
+                entity.CueSegmentStartMs,
+                entity.CueSegmentDurationMs
+            })
             .SingleOrDefaultAsync(cancellationToken);
         if (track is null)
         {
             return null;
         }
 
+        if (track.SourceKind is TrackSourceKind.CueSheet)
+        {
+            return new LibraryTrackResource(
+                track.Id,
+                track.SourceKind,
+                LibraryAudioFormats.Wav.MimeType,
+                LibraryAudioFormats.Wav.DlnaContentFeatures,
+                false,
+                mediaPathResolver.ResolveMediaFilePath(track.SourceRelativePath),
+                track.CueSegmentStartMs,
+                track.CueSegmentDurationMs);
+        }
+
         return new LibraryTrackResource(
             track.Id,
-            mediaPathResolver.ResolveMediaFilePath(track.RelativePath),
-            track.MimeType,
-            LibraryAudioFormats.ResolveByMimeType(track.MimeType).DlnaContentFeatures);
+            track.SourceKind,
+            LibraryAudioFormats.ResolveByExtension(Path.GetExtension(track.SourceRelativePath)).MimeType,
+            LibraryAudioFormats.ResolveByExtension(Path.GetExtension(track.SourceRelativePath)).DlnaContentFeatures,
+            true,
+            mediaPathResolver.ResolveMediaFilePath(track.SourceRelativePath));
     }
 
     public async Task<LibraryImageResource?> GetAlbumArtAsync(int albumId, CancellationToken cancellationToken)
@@ -205,7 +227,7 @@ public sealed class LibraryService(
                     track.Id,
                     track.AlbumId,
                     track.MimeType,
-                    track.FileSize,
+                    track.FileSize > 0 ? track.FileSize : null,
                     track.TrackArtistName,
                     track.Album!.Title,
                     track.TrackNumber > 0 ? track.TrackNumber : null,
@@ -225,7 +247,7 @@ public sealed class LibraryService(
                     track.Id,
                     track.AlbumId,
                     track.MimeType,
-                    track.FileSize,
+                    track.FileSize > 0 ? track.FileSize : null,
                     track.TrackArtistName,
                     track.Album != null ? track.Album.Title : null,
                     track.TrackNumber > 0 ? track.TrackNumber : null,

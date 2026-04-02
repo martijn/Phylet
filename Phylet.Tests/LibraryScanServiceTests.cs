@@ -27,6 +27,8 @@ public sealed class LibraryScanServiceTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IAudioMetadataReader>(metadataReader);
+        services.AddSingleton<ICueSheetParser, CueSheetParser>();
+        services.AddSingleton<IAudioDecoder, StubAudioDecoder>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IHostEnvironment>(new TestHostEnvironment
         {
@@ -81,6 +83,8 @@ public sealed class LibraryScanServiceTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IAudioMetadataReader>(new StubAudioMetadataReader());
+        services.AddSingleton<ICueSheetParser, CueSheetParser>();
+        services.AddSingleton<IAudioDecoder, StubAudioDecoder>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IHostEnvironment>(new TestHostEnvironment
         {
@@ -133,6 +137,8 @@ public sealed class LibraryScanServiceTests
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<IAudioMetadataReader>(metadataReader);
+        services.AddSingleton<ICueSheetParser, CueSheetParser>();
+        services.AddSingleton<IAudioDecoder, StubAudioDecoder>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IHostEnvironment>(new TestHostEnvironment
         {
@@ -232,6 +238,14 @@ public sealed class LibraryScanServiceTests
         public string ApplicationName { get; set; } = "Phylet";
         public string ContentRootPath { get; set; } = string.Empty;
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+
+    private sealed class StubAudioDecoder : IAudioDecoder
+    {
+        public AudioDecoderAvailability GetAvailability() => new(true);
+
+        public Stream OpenCueTrackStream(string sourceFilePath, long startMs, long? durationMs) =>
+            throw new NotSupportedException();
     }
 
     private sealed class TempMediaDirectory : IAsyncDisposable

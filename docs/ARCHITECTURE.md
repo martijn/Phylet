@@ -103,6 +103,7 @@ The scanner currently imports:
 - OGG
 - WAV
 - AIFF / AIF
+- single-image CUE + FLAC as virtual tracks
 
 Tagged files participate in `Artists` and `Albums`. Supported audio files without usable album metadata still appear in `Files`.
 
@@ -111,5 +112,13 @@ Track identity is path-led for now:
 - unique key: relative path under the media root
 - change detection: file size + last modified timestamp
 - file moves/renames become new track ids
+
+Cue-backed virtual tracks use a synthetic relative path derived from the cue file
+plus the cue track number. Their source media remains the referenced FLAC image.
+
+Cue playback currently uses `ffmpeg` to decode the requested segment and stream
+it as generated WAV. This keeps interoperability simple for initial support, but
+it means cue-backed tracks do not currently expose the same seek/range behavior
+as direct file-backed tracks.
 
 The scanner never modifies media files. It only reads metadata and persists catalog state to SQLite.

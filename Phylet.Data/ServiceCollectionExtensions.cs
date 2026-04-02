@@ -20,6 +20,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DatabasePathResolver>();
         services.AddSingleton<MediaPathResolver>();
         services.AddSingleton<IAudioMetadataReader, AtlAudioMetadataReader>();
+        services.AddSingleton<ICueSheetParser, CueSheetParser>();
+        services.AddSingleton<IAudioDecoder, FfmpegAudioDecoder>();
         services.AddSingleton<LibraryService>();
 
         services.AddSingleton(sp =>

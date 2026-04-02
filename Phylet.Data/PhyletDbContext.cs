@@ -52,6 +52,9 @@ public sealed class PhyletDbContext(DbContextOptions<PhyletDbContext> options, R
         {
             entity.HasKey(track => track.Id);
             entity.Property(track => track.RelativePath).HasMaxLength(2048);
+            entity.Property(track => track.SourceKind).HasConversion<int>();
+            entity.Property(track => track.SourceRelativePath).HasMaxLength(2048);
+            entity.Property(track => track.CueSheetRelativePath).HasMaxLength(2048);
             entity.Property(track => track.FileName).HasMaxLength(512);
             entity.Property(track => track.Title).HasMaxLength(512);
             entity.Property(track => track.TrackArtistName).HasMaxLength(512);

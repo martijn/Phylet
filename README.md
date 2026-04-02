@@ -7,9 +7,12 @@ or music lovers that want to stream a music library from their
 NAS or PC to supported Digital Media Players.
 
 Supported audio formats are: FLAC, MP3, M4A (AAC and ALAC), OGG, WAV, and AIFF.
-Phylet reads tags and album art into an internal database, so your files and
-directory structure will not be altered. Untagged files are presented under the
-"Files" tree in library structure.
+Phylet also supports single-image `.cue` + `.flac` albums by exposing each cue
+track as a virtual DLNA track. Multi-file cue sheets are ignored and the
+underlying files continue to be indexed normally. Phylet reads tags and album
+art into an internal database, so your files and directory structure will not
+be altered. Untagged files are presented under the "Files" tree in library
+structure.
 
 Phylet has been tested with Lyngdorf Amplifiers, Samsung TV's, and VLC Media
 Player.
@@ -52,6 +55,23 @@ services:
 volumes:
   phylet-data:
 ```
+
+The Docker image bundles `ffmpeg` so cue-backed virtual tracks work in the
+container by default.
+
+## Cue Sheet Support
+
+Single-image cue sheets are supported when one `.cue` file references one
+`.flac` image. Phylet indexes the cue tracks as normal album tracks and streams
+only the requested segment from the FLAC image.
+
+Current limitations:
+
+- Multi-file cue sheets are skipped.
+- Cue-backed tracks are streamed as generated WAV.
+- Cue-backed tracks currently do not support seeking/range requests as well as
+  normal file-backed tracks, so some players show incomplete progress or do not
+  allow scrubbing within the track.
 
 ## Run in development
 

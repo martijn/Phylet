@@ -7,6 +7,7 @@ namespace Phylet.Controllers;
 [ApiController]
 public sealed class MediaController(
     LibraryService library,
+    IAudioDecoder audioDecoder,
     IAudioMetadataReader metadataReader,
     ILogger<MediaController> logger) : ControllerBase
 {
@@ -21,11 +22,40 @@ public sealed class MediaController(
             return NotFound();
         }
 
-        var path = track.FilePath;
+        var path = track.SourceFilePath;
         if (!System.IO.File.Exists(path))
         {
             logger.LogWarning("Audio request file not found for track id {TrackId}. Expected path: {Path}", trackId, path);
             return NotFound();
+        }
+
+        Response.Headers["transferMode.dlna.org"] = "Streaming";
+        Response.Headers["contentFeatures.dlna.org"] = track.DlnaContentFeatures;
+
+        if (track.SourceKind is TrackSourceKind.CueSheet)
+        {
+            logger.LogInformation(
+                "Serving cue audio track {TrackId} from {Path}, mime={MimeType}, startMs={StartMs}, durationMs={DurationMs}, range={RangeHeader}",
+                trackId,
+                path,
+                track.MimeType,
+                track.CueSegmentStartMs,
+                track.CueSegmentDurationMs,
+                Request.Headers.Range.ToString());
+
+            try
+            {
+                var generatedStream = audioDecoder.OpenCueTrackStream(
+                    path,
+                    track.CueSegmentStartMs ?? 0,
+                    track.CueSegmentDurationMs);
+                return File(generatedStream, track.MimeType, enableRangeProcessing: false);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Cue audio generation failed for track id {TrackId} from {Path}", trackId, path);
+                return NotFound();
+            }
         }
 
         var fileInfo = new FileInfo(path);
@@ -37,11 +67,8 @@ public sealed class MediaController(
             fileInfo.Length,
             Request.Headers.Range.ToString());
 
-        Response.Headers["transferMode.dlna.org"] = "Streaming";
-        Response.Headers["contentFeatures.dlna.org"] = track.DlnaContentFeatures;
-
-        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        return File(stream, track.MimeType, enableRangeProcessing: true);
+        var stream = System.IO.File.OpenRead(path);
+        return File(stream, track.MimeType, enableRangeProcessing: track.SupportsRangeProcessing);
     }
 
     [HttpGet("/media/image/{albumId:int}")]
@@ -113,7 +140,7 @@ public sealed class MediaController(
         Response.Headers["transferMode.dlna.org"] = "Interactive";
         Response.Headers["contentFeatures.dlna.org"] = image.DlnaContentFeatures;
 
-        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var stream = System.IO.File.OpenRead(path);
         return File(stream, image.MimeType, enableRangeProcessing: true);
     }
 }

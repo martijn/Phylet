@@ -79,6 +79,11 @@ public static class LibraryAudioFormats
     public static bool TryGetByExtension(string extension, out LibraryAudioFormat format) =>
         FormatsByExtension.TryGetValue(extension, out format!);
 
+    public static LibraryAudioFormat ResolveByExtension(string extension) =>
+        TryGetByExtension(extension, out var format)
+            ? format
+            : new LibraryAudioFormat(extension, "unknown", "application/octet-stream", GenericDlnaContentFeatures, GenericDlnaContentFeatures);
+
     public static LibraryAudioFormat ResolveByMimeType(string mimeType) =>
         All.FirstOrDefault(candidate => string.Equals(candidate.MimeType, mimeType, StringComparison.OrdinalIgnoreCase))
         ?? new LibraryAudioFormat(string.Empty, "unknown", mimeType, GenericDlnaContentFeatures, GenericDlnaContentFeatures);

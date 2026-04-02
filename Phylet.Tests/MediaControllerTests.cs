@@ -66,10 +66,34 @@ public sealed class MediaControllerTests
         Assert.IsType<NotFoundResult>(result);
     }
 
+    [Fact]
+    public async Task Audio_ServesCueTrackThroughDecoderWithoutRangeSupport()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await using var fixture = await SqliteInMemoryDbFixture.CreateAsync();
+        await using var mediaRoot = await TempMediaDirectory.CreateAsync();
+
+        mediaRoot.CreateFile("Cue Album/album.flac", [1, 2, 3]);
+        var trackId = await SeedCueTrackAsync(fixture.DbContext, cancellationToken);
+        var decoder = new StubAudioDecoder
+        {
+            StreamFactory = () => new MemoryStream([9, 8, 7])
+        };
+
+        var controller = CreateController(fixture.Connection, mediaRoot.RootPath, new StubAudioMetadataReader(), decoder);
+
+        var result = await controller.Audio(trackId);
+
+        var fileResult = Assert.IsType<FileStreamResult>(result);
+        Assert.Equal("audio/wav", fileResult.ContentType);
+        Assert.False(fileResult.EnableRangeProcessing);
+    }
+
     private static MediaController CreateController(
         SqliteConnection connection,
         string mediaPath,
-        IAudioMetadataReader metadataReader)
+        IAudioMetadataReader metadataReader,
+        IAudioDecoder? audioDecoder = null)
     {
         var controller = new MediaController(
             new LibraryService(
@@ -83,6 +107,7 @@ public sealed class MediaControllerTests
                         ContentRootPath = mediaPath,
                         ContentRootFileProvider = new NullFileProvider()
                     })),
+            audioDecoder ?? new StubAudioDecoder(),
             metadataReader,
             NullLogger<MediaController>.Instance)
         {
@@ -118,6 +143,30 @@ public sealed class MediaControllerTests
         return album.Id;
     }
 
+    private static async Task<int> SeedCueTrackAsync(PhyletDbContext dbContext, CancellationToken cancellationToken)
+    {
+        var track = new TrackEntity
+        {
+            RelativePath = "Cue Album/album.cue#track-01",
+            SourceKind = TrackSourceKind.CueSheet,
+            SourceRelativePath = "Cue Album/album.flac",
+            CueSheetRelativePath = "Cue Album/album.cue",
+            CueSegmentStartMs = 0,
+            CueSegmentDurationMs = 30000,
+            FileName = "01-Test.wav",
+            Title = "Test",
+            Format = "wav",
+            MimeType = "audio/wav",
+            FileSize = 0,
+            LastModifiedUtc = DateTime.UtcNow,
+            DurationMs = 30000
+        };
+
+        dbContext.Tracks.Add(track);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return track.Id;
+    }
+
     private sealed class StubAudioMetadataReader : IAudioMetadataReader
     {
         private readonly Dictionary<string, EmbeddedArtworkContent> _embeddedArtwork = new(StringComparer.Ordinal);
@@ -143,6 +192,16 @@ public sealed class MediaControllerTests
         public void SetEmbeddedArtwork(string filePath, EmbeddedArtworkContent artwork) => _embeddedArtwork[filePath] = artwork;
 
         public void SetException(string filePath, Exception exception) => _exceptions[filePath] = exception;
+    }
+
+    private sealed class StubAudioDecoder : IAudioDecoder
+    {
+        public Func<Stream>? StreamFactory { get; set; }
+
+        public AudioDecoderAvailability GetAvailability() => new(true);
+
+        public Stream OpenCueTrackStream(string sourceFilePath, long startMs, long? durationMs) =>
+            StreamFactory?.Invoke() ?? throw new NotSupportedException();
     }
 
     private sealed class TestHostEnvironment : IHostEnvironment
