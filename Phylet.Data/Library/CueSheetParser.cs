@@ -120,11 +120,13 @@ public sealed class CueSheetParser : ICueSheetParser
 
     private static CueSheetTime ParseTime(string value)
     {
-        var parts = value.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var parts = value.Split(':');
         if (parts.Length != 3
             || !int.TryParse(parts[0], NumberStyles.None, CultureInfo.InvariantCulture, out var minutes)
             || !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
-            || !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var frames))
+            || !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var frames)
+            || seconds >= 60
+            || frames >= 75)
         {
             throw new InvalidOperationException($"Cue time is invalid: {value}");
         }
