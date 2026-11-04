@@ -322,17 +322,17 @@ public sealed class ContentDirectoryControllerTests
         dbContext.Albums.AddRange(
             new AlbumEntity
             {
-                Artist = zetaArtist,
+                Artist = alphaArtist,
                 Title = "zebra Album",
                 NormalizedTitle = "ZEBRA ALBUM",
-                AlbumPathKey = "zeta artist/zebra Album"
+                AlbumPathKey = "Alpha Artist/zebra Album"
             },
             new AlbumEntity
             {
-                Artist = alphaArtist,
+                Artist = zetaArtist,
                 Title = "Alpha Album",
                 NormalizedTitle = "ALPHA ALBUM",
-                AlbumPathKey = "Alpha Artist/Alpha Album"
+                AlbumPathKey = "zeta artist/Alpha Album"
             });
 
         await dbContext.SaveChangesAsync(cancellationToken);

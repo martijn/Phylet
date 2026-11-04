@@ -286,8 +286,7 @@ public sealed class LibraryService(
                 .ToListAsync(cancellationToken),
             LibraryObjectKind.Artist => await BuildArtistChildrenAsync(dbContext, objectId.EntityId, cancellationToken),
             LibraryObjectKind.AlbumsRoot => await dbContext.Albums
-                .OrderBy(album => album.Artist.NormalizedName)
-                .ThenBy(album => album.NormalizedTitle)
+                .OrderBy(album => album.NormalizedTitle)
                 .ThenBy(album => album.Title)
                 .ThenBy(album => album.AlbumPathKey)
                 .Select(album => (LibraryBrowseEntry)new LibraryContainerEntry(

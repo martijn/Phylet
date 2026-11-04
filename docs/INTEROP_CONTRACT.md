@@ -92,6 +92,7 @@ This document freezes wire behavior that is currently verified with Samsung TV a
 
 ## DIDL-Lite
 
+- Artists and albums are listed alphabetically by normalized name and title respectively; the albums root is not grouped by artist.
 - Includes namespaces:
   - DIDL-Lite, `dc`, `upnp`, `dlna`
 - Root containers `artists`, `albums`, and `files` include `upnp:albumArtURI` pointing at static PNG section icons.
